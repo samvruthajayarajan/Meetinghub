@@ -15,9 +15,11 @@ export default function EditMeeting({ params }: { params: Promise<{ id: string }
     title: '',
     date: '',
     time: '',
-    organizer: '',
-    description: '',
-    participants: '',
+    location: '',
+    linkedAgenda: '',
+    attendees: '',
+    status: 'scheduled',
+    notes: '',
     meetingMode: 'offline',
     meetingLink: '',
   });
@@ -48,9 +50,11 @@ export default function EditMeeting({ params }: { params: Promise<{ id: string }
         title: data.title || '',
         date: dateStr,
         time: timeStr,
-        organizer: data.location || '',
-        description: data.description || '',
-        participants: data.agendaItems?.map((item: any) => item.title).join(', ') || '',
+        location: data.location || '',
+        linkedAgenda: '',
+        attendees: data.participants?.join(', ') || '',
+        status: data.status === 'PUBLISHED' ? 'scheduled' : 'draft',
+        notes: data.description || '',
         meetingMode: data.meetingMode || 'offline',
         meetingLink: data.meetingLink || '',
       });
@@ -66,20 +70,14 @@ export default function EditMeeting({ params }: { params: Promise<{ id: string }
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (action: 'draft' | 'publish') => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setSaving(true);
     setError('');
 
     // Validation
     if (!formData.title || !formData.date || !formData.time) {
       setError('Please fill in all required fields');
-      setSaving(false);
-      return;
-    }
-
-    // Validate meeting link for online meetings
-    if (formData.meetingMode === 'online' && !formData.meetingLink) {
-      setError('Meeting link is required for online meetings');
       setSaving(false);
       return;
     }
@@ -94,11 +92,12 @@ export default function EditMeeting({ params }: { params: Promise<{ id: string }
         body: JSON.stringify({
           title: formData.title,
           date: dateTime.toISOString(),
-          location: formData.organizer,
-          description: formData.description,
-          status: action === 'draft' ? 'DRAFT' : 'PUBLISHED',
+          location: formData.location,
+          description: formData.notes,
+          status: formData.status === 'scheduled' ? 'PUBLISHED' : 'DRAFT',
+          participants: formData.attendees.split(',').map(p => p.trim()).filter(p => p),
           meetingMode: formData.meetingMode,
-          meetingLink: formData.meetingLink,
+          meetingLink: formData.meetingLink || null,
         }),
       });
 
@@ -106,252 +105,228 @@ export default function EditMeeting({ params }: { params: Promise<{ id: string }
         throw new Error('Failed to update meeting');
       }
 
-      router.push(`/meetings/${resolvedParams.id}`);
+      router.push('/user');
     } catch (err) {
       setError('Failed to update meeting. Please try again.');
       setSaving(false);
     }
   };
 
-  const handleCancel = () => {
-    router.push(`/meetings/${resolvedParams.id}`);
-  };
-
   if (status === 'loading' || loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-white">
+      <div className="flex items-center justify-center min-h-screen bg-gray-900/50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-800 mx-auto"></div>
-          <p className="mt-4 text-gray-800">Loading...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-white">Loading...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.push(`/meetings/${resolvedParams.id}`)}
-              className="text-gray-600 hover:text-gray-800 transition-colors"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-            </button>
-            <h1 className="text-2xl font-bold text-gray-800">Edit Meeting</h1>
-          </div>
+    <div className="fixed inset-0 bg-gray-900/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+          <h2 className="text-xl font-bold text-gray-900">Edit Meeting</h2>
+          <button
+            onClick={() => router.push('/user')}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-6 py-8">
-        <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-sm">
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
           {error && (
-            <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-start gap-3">
-              <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span>{error}</span>
+            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
+              {error}
             </div>
           )}
 
-          <form className="space-y-6">
-            {/* Meeting Title */}
+          {/* Title */}
+          <div>
+            <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+              Title <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              id="title"
+              name="title"
+              required
+              value={formData.title}
+              onChange={handleChange}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder=""
+            />
+          </div>
+
+          {/* Date and Time */}
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label htmlFor="title" className="block text-sm font-semibold text-gray-700 mb-2">
-                Meeting Title <span className="text-red-600">*</span>
+              <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-2">
+                Date <span className="text-red-500">*</span>
               </label>
               <input
-                type="text"
-                id="title"
-                name="title"
+                type="date"
+                id="date"
+                name="date"
                 required
-                value={formData.title}
+                value={formData.date}
                 onChange={handleChange}
-                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
-                placeholder="Enter meeting title"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
 
-            {/* Date and Time */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label htmlFor="date" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Date <span className="text-red-600">*</span>
-                </label>
-                <input
-                  type="date"
-                  id="date"
-                  name="date"
-                  required
-                  value={formData.date}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="time" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Time <span className="text-red-600">*</span>
-                </label>
-                <input
-                  type="time"
-                  id="time"
-                  name="time"
-                  required
-                  value={formData.time}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
-                />
-              </div>
-            </div>
-
-            {/* Presenter */}
             <div>
-              <label htmlFor="organizer" className="block text-sm font-semibold text-gray-700 mb-2">
-                Presenter
+              <label htmlFor="time" className="block text-sm font-medium text-gray-700 mb-2">
+                Time <span className="text-red-500">*</span>
               </label>
               <input
-                type="text"
-                id="organizer"
-                name="organizer"
-                value={formData.organizer}
-                onChange={handleChange}
-                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
-                placeholder="Enter presenter name"
-              />
-            </div>
-
-            {/* Meeting Mode */}
-            <div>
-              <label htmlFor="meetingMode" className="block text-sm font-semibold text-gray-700 mb-2">
-                Meeting Mode <span className="text-red-600">*</span>
-              </label>
-              <select
-                id="meetingMode"
-                name="meetingMode"
+                type="time"
+                id="time"
+                name="time"
                 required
-                value={formData.meetingMode}
+                value={formData.time}
                 onChange={handleChange}
-                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
-              >
-                <option value="offline">Offline</option>
-                <option value="online">Online</option>
-              </select>
-            </div>
-
-            {/* Meeting Link - Conditional */}
-            {formData.meetingMode === 'online' && (
-              <div>
-                <label htmlFor="meetingLink" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Meeting Link <span className="text-red-600">*</span>
-                </label>
-                <input
-                  type="url"
-                  id="meetingLink"
-                  name="meetingLink"
-                  required
-                  value={formData.meetingLink}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
-                  placeholder="https://meet.google.com/xxx-xxxx-xxx"
-                />
-                <p className="mt-2 text-sm text-gray-600">Enter the Google Meet or Zoom link for the meeting</p>
-              </div>
-            )}
-
-            {/* Description */}
-            <div>
-              <label htmlFor="description" className="block text-sm font-semibold text-gray-700 mb-2">
-                Description
-              </label>
-              <textarea
-                id="description"
-                name="description"
-                rows={4}
-                value={formData.description}
-                onChange={handleChange}
-                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all resize-none"
-                placeholder="Enter meeting description or notes"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
-            </div>
-
-            {/* Participants */}
-            <div>
-              <label htmlFor="participants" className="block text-sm font-semibold text-gray-700 mb-2">
-                Participants
-              </label>
-              <input
-                type="text"
-                id="participants"
-                name="participants"
-                value={formData.participants}
-                onChange={handleChange}
-                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
-                placeholder="Enter participant names separated by commas"
-              />
-              <p className="mt-2 text-sm text-gray-600">Separate multiple participants with commas</p>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-200">
-              <button
-                type="button"
-                onClick={() => handleSubmit('draft')}
-                disabled={saving}
-                className="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                </svg>
-                {saving ? 'Saving...' : 'Save as Draft'}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleSubmit('publish')}
-                disabled={saving}
-                className="flex-1 px-6 py-3 bg-green-100 text-green-700 hover:bg-green-200 font-semibold rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md flex items-center justify-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                {saving ? 'Saving...' : 'Save Changes'}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleCancel}
-                disabled={saving}
-                className="px-6 py-3 bg-white hover:bg-gray-50 text-gray-700 hover:text-gray-800 font-semibold rounded-lg border border-gray-300 hover:border-gray-400 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        </div>
-
-        {/* Help Text */}
-        <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex gap-3">
-            <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <div className="text-sm text-green-900">
-              <p className="font-semibold mb-1">Tips:</p>
-              <ul className="list-disc list-inside space-y-1 text-green-800">
-                <li>Save as draft to continue editing later</li>
-                <li>Save changes to update and publish the meeting</li>
-                <li>All fields marked with * are required</li>
-              </ul>
             </div>
           </div>
-        </div>
-      </main>
+
+          {/* Location */}
+          <div>
+            <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
+              Location
+            </label>
+            <input
+              type="text"
+              id="location"
+              name="location"
+              value={formData.location}
+              onChange={handleChange}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder=""
+            />
+          </div>
+
+          {/* Linked Agenda */}
+          <div>
+            <label htmlFor="linkedAgenda" className="block text-sm font-medium text-gray-700 mb-2">
+              Linked Agenda
+            </label>
+            <select
+              id="linkedAgenda"
+              name="linkedAgenda"
+              value={formData.linkedAgenda}
+              onChange={handleChange}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Select agenda (optional)</option>
+            </select>
+          </div>
+
+          {/* Attendees */}
+          <div>
+            <label htmlFor="attendees" className="block text-sm font-medium text-gray-700 mb-2">
+              Attendees (comma separated)
+            </label>
+            <input
+              type="text"
+              id="attendees"
+              name="attendees"
+              value={formData.attendees}
+              onChange={handleChange}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="John, Jane, Bob"
+            />
+          </div>
+
+          {/* Meeting Mode */}
+          <div>
+            <label htmlFor="meetingMode" className="block text-sm font-medium text-gray-700 mb-2">
+              Meeting Mode
+            </label>
+            <select
+              id="meetingMode"
+              name="meetingMode"
+              value={formData.meetingMode}
+              onChange={handleChange}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="offline">Offline</option>
+              <option value="online">Online</option>
+            </select>
+          </div>
+
+          {/* Meeting Link - Only show for Online */}
+          {formData.meetingMode === 'online' && (
+            <div>
+              <label htmlFor="meetingLink" className="block text-sm font-medium text-gray-700 mb-2">
+                Meeting Link
+              </label>
+              <input
+                type="url"
+                id="meetingLink"
+                name="meetingLink"
+                value={formData.meetingLink}
+                onChange={handleChange}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="https://meet.google.com/xxx-xxxx-xxx"
+              />
+            </div>
+          )}
+
+          {/* Status */}
+          <div>
+            <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-2">
+              Status
+            </label>
+            <select
+              id="status"
+              name="status"
+              value={formData.status}
+              onChange={handleChange}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="scheduled">Scheduled</option>
+              <option value="draft">Draft</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-2">
+              Notes
+            </label>
+            <textarea
+              id="notes"
+              name="notes"
+              rows={4}
+              value={formData.notes}
+              onChange={handleChange}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              placeholder=""
+            />
+          </div>
+
+          {/* Submit Button */}
+          <div className="pt-4">
+            <button
+              type="submit"
+              disabled={saving}
+              className="w-full px-6 py-3 bg-blue-400 hover:bg-blue-500 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+            >
+              {saving ? 'Saving Changes...' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

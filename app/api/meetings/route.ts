@@ -77,6 +77,7 @@ export async function POST(req: NextRequest) {
         meetingMode: body.meetingMode || 'offline',
         meetingLink: body.meetingLink || null,
         status: body.status || 'scheduled',
+        attendees: body.participants || [],
         createdBy: user.id,
         agendaItems: {
           create: body.agendaItems?.map((item: any, index: number) => ({

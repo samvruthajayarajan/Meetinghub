@@ -63,6 +63,7 @@ export async function PUT(
   if (body.status !== undefined) updateData.status = body.status;
   if (body.meetingMode !== undefined) updateData.meetingMode = body.meetingMode;
   if (body.meetingLink !== undefined) updateData.meetingLink = body.meetingLink;
+  if (body.participants !== undefined) updateData.attendees = body.participants;
 
   // Handle agenda items if provided
   if (body.agendaItems !== undefined) {

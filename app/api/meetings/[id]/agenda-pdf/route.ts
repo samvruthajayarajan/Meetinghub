@@ -37,18 +37,18 @@ export async function GET(
 
     console.log('Generating PDF with PDFKit...');
     
-    // Parse agenda data from description
-    let agendaData = { objectives: '', preparationRequired: [], agendaItems: [], actionItems: [] };
-    if (meeting.description) {
-      try {
-        const parsed = JSON.parse(meeting.description);
-        if (parsed.savedAgendas && parsed.savedAgendas.length > 0) {
-          agendaData = parsed.savedAgendas[parsed.savedAgendas.length - 1];
-        }
-      } catch (e) {
-        console.log('No agenda data found in description');
-      }
-    }
+    // Use agenda items from database
+    const agendaData = {
+      objectives: '',
+      preparationRequired: [],
+      agendaItems: meeting.agendaItems.map((item: any) => ({
+        topic: item.title,
+        description: item.description,
+        presenter: item.presenter,
+        duration: item.duration
+      })),
+      actionItems: []
+    };
     
     const pdfBuffer = await generateAgendaPDF(meeting, agendaData);
     console.log('PDF generated successfully, size:', pdfBuffer.length, 'bytes');

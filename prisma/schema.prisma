@@ -44,6 +44,7 @@ model Meeting {
   meetingMode String?      @default("offline")
   meetingLink String?
   status      String       @default("scheduled")
+  attendees   String[]     @default([])
   createdBy   String       @db.ObjectId
   user        User         @relation(fields: [createdBy], references: [id])
   createdAt   DateTime     @default(now())
